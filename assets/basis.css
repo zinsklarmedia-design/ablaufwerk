@@ -1,0 +1,44 @@
+:root {
+      --bg: #0B0F14; --panel: #141B24; --line: #263241; --ink: #F3F6FA; --muted: #8D9AAE;
+      --accent: #8B7CFF; --mint: #2EE6A6;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh; color: var(--ink); background: radial-gradient(700px 500px at 50% 0%, #17142E 0%, var(--bg) 70%) var(--bg);
+      font: 17px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+      display: flex; justify-content: center; padding: 56px 16px 40px;
+    }
+    main { width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 14px; }
+    .kopf { text-align: center; margin-bottom: 18px; }
+    .zeichen {
+      width: 84px; height: 84px; margin: 0 auto 16px; border-radius: 24px; display: grid; place-items: center;
+      background: var(--panel); border: 2px solid var(--accent); font: 700 28px/1 ui-monospace, monospace; color: var(--mint);
+    }
+    h1 { font-size: 26px; letter-spacing: -0.3px; }
+    h1 span { color: var(--accent); }
+    .kopf p { color: var(--muted); margin-top: 6px; }
+    a.link {
+      display: flex; align-items: center; gap: 14px; text-decoration: none; color: var(--ink);
+      background: var(--panel); border: 2px solid var(--line); border-radius: 18px; padding: 16px 18px;
+      transition: border-color .15s, transform .15s;
+    }
+    a.link:hover, a.link:focus-visible { border-color: var(--accent); transform: translateY(-1px); outline: none; }
+    a.link.haupt { background: var(--mint); color: var(--bg); border-color: var(--mint); }
+    a.link.haupt small { color: #0B3B2B; }
+    .ico { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: rgba(255,255,255,.08); font-size: 20px; }
+    a.link.haupt .ico { background: rgba(0,0,0,.12); }
+    .txt { display: flex; flex-direction: column; }
+    .txt b { font-size: 17px; }
+    .txt small { font-size: 14px; color: var(--muted); }
+    footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 22px; }
+/* Rechtstexte */
+.text { width: 100%; max-width: 680px; }
+.text h1 { font-size: 28px; margin-bottom: 18px; }
+.text h2 { font-size: 19px; margin: 26px 0 8px; color: var(--mint); }
+.text p, .text li { color: #D5DCE6; margin-bottom: 10px; }
+.text ul { padding-left: 20px; }
+.text a { color: var(--accent); }
+.zurueck { display: inline-block; margin-bottom: 22px; color: var(--muted); text-decoration: none; }
+.zurueck:hover { color: var(--ink); }
+footer a { color: var(--muted); }
+.fehlt { background: #FF6B6B; color: #000; padding: 0 6px; border-radius: 4px; font-weight: 700; }

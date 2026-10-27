@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ablaufwerk · Automatisieren mit KI</title>
+  <meta name="description" content="Lokale Automatisierungen mit n8n und KI – ohne Programmieren, ohne Cloud. Warteliste für den Kurs und gratis Vorlagen." />
+  <link rel="stylesheet" href="assets/basis.css" />
+</head>
+<body>
+  <main>
+    <div class="kopf">
+      <div class="zeichen">AW</div>
+      <h1>Ablauf<span>werk</span></h1>
+      <p>Automatisieren mit KI – lokal, sicher, ohne Programmieren.</p>
+    </div>
+
+    <!-- LINKS: Reihenfolge = Wichtigkeit. Leeres href → Link wird ausgeblendet. -->
+    <a class="link haupt" href="mailto:zinsklarmedia@gmail.com?subject=Warteliste%20Ablaufwerk&body=Hi%2C%20ich%20will%20auf%20die%20Warteliste.%20Am%20liebsten%20automatisieren%20w%C3%BCrde%20ich%3A%20">
+      <span class="ico">✉</span><span class="txt"><b>Warteliste für den Kurs</b><small>Erfahre als Erstes, wenn er startet – unverbindlich</small></span>
+    </a>
+    <a class="link" href="downloads/ideen-sammler-n8n.json" download>
+      <span class="ico">⬇</span><span class="txt"><b>Gratis: Mein Ideen-Sammler für n8n</b><small>Der Workflow aus dem Video zum Importieren</small></span>
+    </a>
+    <a class="link" href="https://www.tiktok.com/@ablaufwerk">
+      <span class="ico">▶</span><span class="txt"><b>TikTok @ablaufwerk</b><small>Kurze Videos zu Automatisierungen</small></span>
+    </a>
+    <a class="link" href="">
+      <span class="ico">▶</span><span class="txt"><b>YouTube</b><small>Längere Anleitungen</small></span>
+    </a>
+
+    <footer>Keine Cookies, kein Tracking.<br /><a href="impressum.html">Impressum</a> · <a href="datenschutz.html">Datenschutz</a></footer>
+  </main>
+  <script>
+    document.querySelectorAll('a.link').forEach(a => { if (!a.getAttribute('href')) a.remove(); });
+  </script>
+</body>
+</html>

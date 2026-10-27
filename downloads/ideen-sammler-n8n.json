@@ -1,0 +1,267 @@
+{
+  "id": "ideenSammlerVorlage",
+  "name": "Ideen-Sammler (Vorlage von @ablaufwerk)",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Berlin"
+  },
+  "nodes": [
+    {
+      "id": "a1",
+      "name": "Jeden Morgen 7 Uhr",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a2",
+      "name": "Testen per Klick",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "a3",
+      "name": "Nachrichtenquellen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        100
+      ],
+      "parameters": {
+        "jsCode": "// Hier stehen die Quellen. Neue Quelle = neue Zeile.\nconst quellen = [\n  { quelle: 'Tagesschau Wirtschaft', url: 'https://www.tagesschau.de/wirtschaft/index~rss2.xml' },\n  { quelle: 'Tagesschau Finanzen',   url: 'https://www.tagesschau.de/wirtschaft/finanzen/index~rss2.xml' },\n  { quelle: 'Handelsblatt Finanzen', url: 'https://www.handelsblatt.com/contentexport/feed/finanzen' },\n  { quelle: 'EZB (englisch)',        url: 'https://www.ecb.europa.eu/rss/press.html' },\n];\nreturn quellen.map(q => ({ json: q }));"
+      }
+    },
+    {
+      "id": "a4",
+      "name": "Nachrichten holen",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        480,
+        100
+      ],
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "a5",
+      "name": "Nur neue & ohne Doppelte",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        100
+      ],
+      "parameters": {
+        "jsCode": "// Behält nur Meldungen der letzten 24 Stunden und wirft doppelte Titel raus.\nconst grenze = Date.now() - 24 * 60 * 60 * 1000;\nconst gesehen = new Set();\nconst raus = [];\nfor (const item of $input.all()) {\n  const n = item.json;\n  if (!n.title || !n.link) continue;\n  // Tagesschau-Videos haben keinen Text – daraus würde die KI nur raten\n  if (/tagesschau\\.de\\/(video|multimedia)\\//.test(n.link)) continue;\n  const zeit = Date.parse(n.isoDate || n.pubDate || '');\n  if (zeit && zeit < grenze) continue;\n  const schluessel = n.title.trim().toLowerCase();\n  if (gesehen.has(schluessel)) continue;\n  gesehen.add(schluessel);\n  raus.push({ json: { titel: n.title.trim(), link: n.link, zeit: zeit || null, text: (n.contentSnippet || '').trim() } });\n}\nreturn raus;"
+      }
+    },
+    {
+      "id": "a6",
+      "name": "Notiz zusammenbauen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        100
+      ],
+      "parameters": {
+        "jsCode": "// Baut aus allen Meldungen EINE Markdown-Notiz fürs Vault – die besten Video-Ideen zuerst.\nconst heute = $now.setZone('Europe/Berlin');\nconst quelleVon = link => {\n  const h = (link.match(/^https?:\\/\\/([^\\/]+)/) || [])[1] || link;\n  if (h.includes('tagesschau')) return 'Tagesschau';\n  if (h.includes('handelsblatt')) return 'Handelsblatt';\n  if (h.includes('ecb.europa')) return 'EZB';\n  return h;\n};\nconst sterne = n => '★'.repeat(n) + '☆'.repeat(5 - n);\nconst meldungen = $input.all().map(i => i.json)\n  .sort((a, b) => ((b.ki?.potenzial || 0) - (a.ki?.potenzial || 0)) || ((b.zeit || 0) - (a.zeit || 0)));\nconst mitKi = meldungen.filter(m => m.ki).length;\n\nlet md = `---\\ntags: [zinsklar, ideen, automatisch]\\ndate: ${heute.toFormat('yyyy-MM-dd')}\\nquelle: n8n Zinsklar-Ideen-Sammler\\n---\\n\\n# Zinsklar-Ideen ${heute.toFormat('dd.MM.yyyy')}\\n\\n`;\nmd += `${meldungen.length} neue Finanz-Meldungen der letzten 24 Stunden, beste Video-Ideen zuerst. Abhaken, was ein Video wert ist.\\n\\n`;\nif (meldungen.length && !mitKi) md += `> [!warning] Die lokale KI war aus – heute nur die Meldungen ohne Video-Ideen.\\n> Starten mit: \\`systemctl --user start glm-local\\`\\n\\n`;\nlet abschnitt = null;\nfor (const m of meldungen) {\n  const neu = !m.ki ? 'Ohne KI-Idee' : m.ki.potenzial >= 4 ? 'Top-Ideen' : m.ki.potenzial === 3 ? 'Vielleicht' : 'Eher nicht';\n  if (neu !== abschnitt) { md += `\\n## ${neu}\\n\\n`; abschnitt = neu; }\n  md += `- [ ] **${m.titel}** (${quelleVon(m.link)}) – [lesen](${m.link})\\n`;\n  if (m.ki) {\n    md += `    - ${sterne(m.ki.potenzial)} **Hook:** „${m.ki.hook}“\\n`;\n    md += `    - **Idee:** ${m.ki.idee}\\n`;\n  } else if (m.text) {\n    md += `    - ${m.text.slice(0, 200).replace(/\\s+/g, ' ')}\\n`;\n  }\n}\nif (!meldungen.length) md += '_Heute nichts Neues._\\n';\nmd += `\\n---\\n_KI-Ideen sind Vorschläge der lokalen KI – vor dem Video Fakten in der Originalmeldung prüfen. Keine Anlageberatung._\\n`;\nreturn [{ json: { text: md, dateiname: heute.toFormat('yyyy-MM-dd') + ' Zinsklar-Ideen.md' } }];"
+      }
+    },
+    {
+      "id": "a7",
+      "name": "In Datei umwandeln",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1680,
+        100
+      ],
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "text",
+        "options": {
+          "fileName": "={{ $json.dateiname }}"
+        }
+      }
+    },
+    {
+      "id": "a8",
+      "name": "In Vault-Inbox speichern",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        100
+      ],
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/files/{{ $('Notiz zusammenbauen').item.json.dateiname }}",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "notes": "Pfad anpassen: wohin die Notiz gespeichert werden soll."
+    },
+    {
+      "id": "a9",
+      "name": "KI: Video-Idee",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        100
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "URL und Modell auf deine KI anpassen (z. B. Ollama: http://127.0.0.1:11434/v1/chat/completions).",
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8087/v1/chat/completions",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'glm-4.7-flash-uncensored', temperature: 0.4, max_tokens: 300, chat_template_kwargs: { enable_thinking: false }, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: \"Du bist Ideen-Redakteur für Zinsklar, einen sachlichen deutschen Kurzvideo-Kanal (TikTok/Shorts) über Finanz-Basics und das Geldsystem für 18- bis 32-Jährige. Anti-Hype, keine Anlageberatung, keine Kauf-Empfehlungen, keine einzelnen Aktien empfehlen. Erfinde KEINE Fakten: nutze nur, was in der Meldung steht. Bewerte das Potenzial streng: 5 = betrifft das Geld der Zielgruppe direkt und lässt sich einfach erklären (Inflation, Zinsen, Sparen, ETFs, Steuern, Rente, Miete, Geldsystem); 3 = interessant, aber nur indirekt relevant; 1-2 = Firmen-Nachrichten, Quartalszahlen, Tages-Börsenberichte, Personalien, Politik ohne Geldbezug. Höchstens jede vierte Meldung verdient 4 oder 5. Antworte NUR mit JSON: {\\\"hook\\\": erster Satz des Videos (max 12 Wörter), \\\"idee\\\": worum das 30-60-Sekunden-Video geht (1-2 Sätze), \\\"potenzial\\\": Zahl 1-5}\" }, { role: 'user', content: 'Meldung: ' + $json.titel + '\\nKurztext: ' + $json.text } ] }) }}",
+        "options": {
+          "timeout": 900000
+        }
+      }
+    },
+    {
+      "id": "a10",
+      "name": "Idee auslesen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        100
+      ],
+      "parameters": {
+        "jsCode": "// Hängt die KI-Antwort an die passende Meldung. Ist die KI aus, bleibt die Meldung trotzdem drin.\nconst meldungen = $('Nur neue & ohne Doppelte').all();\nconst antworten = $input.all();\nreturn meldungen.map((m, i) => {\n  let ki = null;\n  try {\n    const inhalt = antworten[i].json.choices[0].message.content;\n    const json = JSON.parse(inhalt.slice(inhalt.indexOf('{'), inhalt.lastIndexOf('}') + 1));\n    ki = { hook: String(json.hook || '').trim(), idee: String(json.idee || '').trim(), potenzial: Math.max(1, Math.min(5, Number(json.potenzial) || 1)) };\n  } catch (e) { ki = null; }\n  return { json: { ...m.json, ki } };\n});"
+      }
+    }
+  ],
+  "connections": {
+    "Jeden Morgen 7 Uhr": {
+      "main": [
+        [
+          {
+            "node": "Nachrichtenquellen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Testen per Klick": {
+      "main": [
+        [
+          {
+            "node": "Nachrichtenquellen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nachrichtenquellen": {
+      "main": [
+        [
+          {
+            "node": "Nachrichten holen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nachrichten holen": {
+      "main": [
+        [
+          {
+            "node": "Nur neue & ohne Doppelte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nur neue & ohne Doppelte": {
+      "main": [
+        [
+          {
+            "node": "KI: Video-Idee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notiz zusammenbauen": {
+      "main": [
+        [
+          {
+            "node": "In Datei umwandeln",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "In Datei umwandeln": {
+      "main": [
+        [
+          {
+            "node": "In Vault-Inbox speichern",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "KI: Video-Idee": {
+      "main": [
+        [
+          {
+            "node": "Idee auslesen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Idee auslesen": {
+      "main": [
+        [
+          {
+            "node": "Notiz zusammenbauen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
